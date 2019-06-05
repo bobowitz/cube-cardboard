@@ -1,5 +1,6 @@
 import { Box } from "./box";
 import { Obstacle } from "./obstacle";
+import { Constants } from "./constants";
 
 enum GameState {
   PLAYING,
@@ -17,6 +18,8 @@ export class Game {
   x = 0;
   targetX = 0;
   state = GameState.PLAYING;
+  score = 0;
+  hitTime = 0;
 
   // [min, max] inclusive
   static rand = (min: number, max: number): number => {
@@ -32,8 +35,20 @@ export class Game {
     let x = evt.clientX;
     let y = evt.clientY;
 
+    /*if (Box.EYE_DIST == 0.0) {
+      Box.EYE_DIST = 10.0;
+      this.backgroundColor = "#d0ffff";
+    } else if (Box.EYE_DIST == 10.0) {
+      Box.EYE_DIST = 20.0;
+      this.backgroundColor = "#b0ffff";
+    } else if (Box.EYE_DIST == 20.0) {
+      Box.EYE_DIST = 0.0;
+      this.backgroundColor = "#ffffff";
+    }*/
+
     if (this.state == GameState.GAME_OVER) {
       this.state = GameState.PLAYING;
+      return;
     }
 
     if (x >= Game.canvas.width - 100 && y >= Game.canvas.height - 100) {
@@ -66,15 +81,25 @@ export class Game {
       Game.canvas.addEventListener("click", this.handleTouchStart, false);
 
       this.boxes = new Array<Box>();
-      for (let x = -200; x <= 200; x += 50) {
-        for (let y = -200; y <= 200; y += 50) {
-          this.boxes.push(new Box(x, y, Game.rand(1000, 1200), 50, 50));
+      for (let z = 0; z < 20000; z += 2500) {
+        for (let x = -500; x <= 500; x += 100) {
+          for (let y = Game.rand(-750, -500); y <= -100; y += 100) {
+            this.boxes.push(new Box(x, y, z + Game.rand(0, 100), 50, 50));
+          }
         }
       }
 
       this.obstacles = new Array<Obstacle>();
       for (let i = 0; i < 100; i++) {
-        this.obstacles.push(new Obstacle(Game.rand(-1, 1) * 300, 0, i * 250 + 1000, 100, 100));
+        this.obstacles.push(
+          new Obstacle(
+            Game.rand(-1, 1) * Constants.LANE_WIDTH,
+            0,
+            i * 250 + 1000,
+            Constants.OBSTACLE_SIZE,
+            Constants.OBSTACLE_SIZE
+          )
+        );
       }
 
       setInterval(this.run, 1000.0 / this.FPS);
@@ -92,16 +117,30 @@ export class Game {
     this.draw();
   };
 
+  oldTime = Date.now();
+
   update = () => {
+    let delta = Date.now() - this.oldTime;
+    this.oldTime = Date.now();
     if (this.state == GameState.PLAYING) {
       for (const b of this.boxes) {
-        b.update();
+        b.update(delta);
       }
       for (const o of this.obstacles) {
-        o.update();
-        if (o.x == this.targetX * 300 && o.z < 50) this.state = GameState.GAME_OVER;
+        o.update(delta);
+        if (
+          Date.now() - this.hitTime > Constants.HIT_INVULN_TIME &&
+          Math.abs(o.x - this.x * Constants.LANE_WIDTH) < Constants.EPSILON &&
+          o.z < 120 &&
+          o.z > 100
+        ) {
+          this.score -= 1000;
+          this.hitTime = Date.now();
+        }
       }
     }
+
+    this.score += 10;
 
     this.x += 0.1 * (this.targetX - this.x);
   };
@@ -114,31 +153,6 @@ export class Game {
     Game.ctx.fillText(text, Math.round(x), Math.round(y), maxWidth);
   };
 
-  drawRect = (x: number, y: number, z: number, w: number, h: number) => {
-    let FOV = 100;
-    let SCREEN_DIST = 50;
-    let EYE_DIST = 100;
-
-    // left eye rect
-    let fov = (z / SCREEN_DIST) * FOV;
-    let scale = FOV / fov;
-    //z = infinity -> dist = 0
-    //z = 0 -> dist = EYE_DIST / 2
-    let wS = w * scale;
-    Game.ctx.fillRect(
-      (x + EYE_DIST) * scale + Game.canvas.width * 0.25 - wS / 2,
-      (y - h / 2) * scale + Game.canvas.height * 0.5,
-      wS,
-      h * scale
-    );
-    Game.ctx.fillRect(
-      (x - EYE_DIST) * scale + Game.canvas.width * 0.75 - wS / 2,
-      (y - h / 2) * scale + Game.canvas.height * 0.5,
-      wS,
-      h * scale
-    );
-  };
-
   draw = () => {
     Game.canvas.width = window.innerWidth;
     Game.canvas.height = window.innerHeight;
@@ -146,13 +160,32 @@ export class Game {
     Game.ctx.fillStyle = this.backgroundColor;
     Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
 
+    Game.ctx.fillStyle = "#304020";
+    Game.ctx.fillRect(0, Game.canvas.height / 2, Game.canvas.width, Game.canvas.height / 2);
+
+    let scoreText = "";
+    if (this.score < 1000) scoreText = "$" + this.score;
+    else if (this.score < 1000000) scoreText = "$" + Math.round(this.score * 0.01) / 10 + "K";
+    else if (this.score < 1000000000) scoreText = "$" + Math.round(this.score * 0.00001) / 10 + "M";
+    else if (this.score < 1000000000000)
+      scoreText = "$" + Math.round(this.score * 0.00000001) / 10 + "B";
+
+    Game.ctx.fillStyle = "white";
+    Game.ctx.font = "55px sans-serif";
+    let w = Game.ctx.measureText(scoreText).width;
+    Game.ctx.fillText(scoreText, Game.canvas.width * 0.27 - w * 0.5, Game.canvas.height * 0.5 - 20);
+    Game.ctx.fillText(scoreText, Game.canvas.width * 0.73 - w * 0.5, Game.canvas.height * 0.5 - 20);
+    Game.ctx.fillStyle = "black";
+    Game.ctx.fillText(scoreText, Game.canvas.width * 0.27 - w * 0.5, Game.canvas.height * 0.5 - 20);
+    Game.ctx.fillText(scoreText, Game.canvas.width * 0.73 - w * 0.5, Game.canvas.height * 0.5 - 20);
+
     this.boxes.sort((a, b) => b.z - a.z);
     for (const b of this.boxes) {
-      b.draw(this.x * 300);
+      b.draw(this.x * Constants.LANE_WIDTH);
     }
     this.obstacles.sort((a, b) => b.z - a.z);
     for (const o of this.obstacles) {
-      o.draw(this.x * 300);
+      o.draw(this.x * Constants.LANE_WIDTH);
     }
 
     if (!this.fullscreen) {
@@ -160,10 +193,19 @@ export class Game {
       Game.ctx.fillRect(Game.canvas.width - 100, Game.canvas.height - 100, 100, 100);
     }
 
+    if (Date.now() - this.hitTime <= Constants.HIT_INVULN_TIME) {
+      let t = (Date.now() - this.hitTime) / Constants.HIT_INVULN_TIME;
+      Game.ctx.fillStyle = "red";
+      Game.ctx.globalAlpha = (1 - t) * (1 - t) * (1 - t);
+      Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
+      Game.ctx.globalAlpha = 1;
+    }
+
     if (this.state == GameState.GAME_OVER) {
       Game.ctx.fillStyle = "black";
       Game.ctx.globalAlpha = 0.5;
       Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
+      Game.ctx.globalAlpha = 1;
     }
   };
 }

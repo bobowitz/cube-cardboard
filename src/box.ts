@@ -1,4 +1,5 @@
 import { Game } from "./game";
+import { Constants } from "./constants";
 
 export class Box {
   x = 0;
@@ -21,45 +22,47 @@ export class Box {
       "rgb(" + Game.rand(0, 255) + ", " + Game.rand(0, 255) + ", " + Game.rand(0, 255) + ")";
   }
 
-  update = () => {
+  update = (delta: number) => {
     this.x += this.dx;
     this.y += this.dy;
     this.z += this.dz;
-    this.dz += 0.5;
-    if (this.z > 1200) {
-      this.z = 1200;
-      this.dz *= -0.9;
-    }
+    this.dz = Math.sin(Date.now() * 0.001);
+    this.z -= 0.5 * delta;
+    if (this.z <= 0) this.z += 25000;
   };
 
+  static EYE_DIST = 30;
   drawRect = (x: number, y: number, z: number, w: number, h: number) => {
+    if (z < 120) return;
+
     let FOV = 100.0;
     let SCREEN_DIST = 50.0;
-    let EYE_DIST = 10.0;
 
-    // left eye rect
-    let fov = (z / SCREEN_DIST) * FOV;
+    let fov = ((z - 100) / SCREEN_DIST) * FOV;
     let scale = FOV / fov;
-    //z = infinity -> dist = 0
-    //z = 0 -> dist = EYE_DIST / 2
     let wS = w * scale;
     if (
-      (x + EYE_DIST) * scale + Game.canvas.width * 0.25 - wS / 2 + Math.round(wS) <
+      (x + Box.EYE_DIST) * scale +
+        Game.canvas.width * Constants.LEFT_CENTER -
+        wS / 2 +
+        Math.round(wS) <
       Game.canvas.width * 0.5
     ) {
       Game.ctx.fillRect(
-        Math.round((x + EYE_DIST) * scale + Game.canvas.width * 0.25 - wS / 2),
+        Math.round((x + Box.EYE_DIST) * scale + Game.canvas.width * Constants.LEFT_CENTER - wS / 2),
         Math.round((y - h / 2) * scale + Game.canvas.height * 0.5),
         Math.round(wS),
         Math.round(h * scale)
       );
     }
     if (
-      Math.round((x - EYE_DIST) * scale + Game.canvas.width * 0.75 - wS / 2) >
+      Math.round((x - Box.EYE_DIST) * scale + Game.canvas.width * Constants.RIGHT_CENTER - wS / 2) >
       Game.canvas.width * 0.5
     ) {
       Game.ctx.fillRect(
-        Math.round((x - EYE_DIST) * scale + Game.canvas.width * 0.75 - wS / 2),
+        Math.round(
+          (x - Box.EYE_DIST) * scale + Game.canvas.width * Constants.RIGHT_CENTER - wS / 2
+        ),
         Math.round((y - h / 2) * scale + Game.canvas.height * 0.5),
         Math.round(wS),
         Math.round(h * scale)

@@ -4,6 +4,8 @@ canvas {
 
   display: block;
   margin: 0 auto;
+
+  font-variant-numeric: tabular-nums;
 }
 body {
   background-color: black;
@@ -15,16 +17,6 @@ body {
 html {
   overscroll-behavior-y: contain;
   touch-action: none;
-}
-
-@font-face {
-  font-family: PixelFont;
-  src: url("./res/upheavtt.ttf");
-}
-
-@font-face {
-  font-family: Script;
-  src: url("./res/Typecast.ttf");
 }
 
 .center-text {
