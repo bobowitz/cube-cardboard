@@ -160,9 +160,13 @@ var Game = /** @class */ (function () {
         this.update = function () {
             if (_this.state == GameState.PLAYING && Date.now() - _this.startTime > constants_1.Constants.GAME_TIME) {
                 _this.state = GameState.GAME_OVER;
-                var userRef = _this.db.collection("users").doc(_this.username);
-                userRef.set({
-                    score: _this.score,
+                var userRef_1 = _this.db.collection("users").doc(_this.username);
+                userRef_1.get().then(function (doc) {
+                    if (doc.data().score < _this.score) {
+                        userRef_1.set({
+                            score: _this.score,
+                        });
+                    }
                 });
             }
             if (_this.state == GameState.GAME_OVER)
@@ -182,7 +186,6 @@ var Game = /** @class */ (function () {
                     .get()
                     .then(function (querySnapshot) {
                     querySnapshot.forEach(function (doc) {
-                        console.log(doc.data());
                         _this.leaderboard += doc.id + ": " + doc.data().score + "\n";
                     });
                 })

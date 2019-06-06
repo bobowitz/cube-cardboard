@@ -170,10 +170,15 @@ export class Game {
   update = () => {
     if (this.state == GameState.PLAYING && Date.now() - this.startTime > Constants.GAME_TIME) {
       this.state = GameState.GAME_OVER;
+
       let userRef = this.db.collection("users").doc(this.username);
 
-      userRef.set({
-        score: this.score,
+      userRef.get().then(doc => {
+        if (doc.data().score < this.score) {
+          userRef.set({
+            score: this.score,
+          });
+        }
       });
     }
 
@@ -197,7 +202,6 @@ export class Game {
         .get()
         .then(querySnapshot => {
           querySnapshot.forEach(doc => {
-            console.log(doc.data());
             this.leaderboard += doc.id + ": " + doc.data().score + "\n";
           });
         })
