@@ -177,11 +177,11 @@ export class Game {
     if (Date.now() - this.lastScoreSentTime > Constants.SCORE_SEND_INTERVAL) {
       this.lastScoreSentTime = Date.now();
 
-      let userRef = this.db.collection("users").doc(this.username);
+      /* let userRef = this.db.collection("users").doc(this.username);
 
       userRef.set({
         score: this.score,
-      });
+      }); */
 
       this.leaderboard = "";
 

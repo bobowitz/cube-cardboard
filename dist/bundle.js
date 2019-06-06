@@ -167,10 +167,11 @@ var Game = /** @class */ (function () {
                 return;
             if (Date.now() - _this.lastScoreSentTime > constants_1.Constants.SCORE_SEND_INTERVAL) {
                 _this.lastScoreSentTime = Date.now();
-                var userRef = _this.db.collection("users").doc(_this.username);
+                /* let userRef = this.db.collection("users").doc(this.username);
+          
                 userRef.set({
-                    score: _this.score,
-                });
+                  score: this.score,
+                }); */
                 _this.leaderboard = "";
                 var usersRef = _this.db.collection("users");
                 usersRef
