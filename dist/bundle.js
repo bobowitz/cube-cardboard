@@ -142,6 +142,7 @@ var Game = /** @class */ (function () {
                 _this.bonuses.push(new bonus_1.Bonus(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 4000 + 125, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
             }
             _this.startTime = Date.now();
+            _this.score = 0;
         };
         this.toggleFullscreen = function () {
             if (!_this.fullscreen)

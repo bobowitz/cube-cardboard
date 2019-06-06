@@ -114,6 +114,8 @@ export class Game {
     }
 
     this.startTime = Date.now();
+
+    this.score = 0;
   };
 
   constructor() {
