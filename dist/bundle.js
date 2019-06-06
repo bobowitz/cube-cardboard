@@ -107,7 +107,8 @@ var Game = /** @class */ (function () {
             }*/
             if (!_this.fullscreen)
                 _this.toggleFullscreen();
-            if (_this.state == GameState.GAME_OVER) {
+            if (_this.state == GameState.GAME_OVER &&
+                Date.now() - _this.startTime > constants_1.Constants.GAME_TIME + constants_1.Constants.GAME_OVER_DISABLE_CLICK_TIME) {
                 _this.state = GameState.PLAYING;
                 _this.initCourse();
                 return;
@@ -417,6 +418,7 @@ var Constants = /** @class */ (function () {
     Constants.HIT_INVULN_TIME = 1000;
     Constants.SCORE_SEND_INTERVAL = 10000;
     Constants.GAME_TIME = 30000;
+    Constants.GAME_OVER_DISABLE_CLICK_TIME = 1500;
     Constants.EYE_DIST = 0.22;
     Constants.LEFT_CENTER = 0.5 - Constants.EYE_DIST;
     Constants.RIGHT_CENTER = 0.5 + Constants.EYE_DIST;

@@ -58,7 +58,10 @@ export class Game {
 
     if (!this.fullscreen) this.toggleFullscreen();
 
-    if (this.state == GameState.GAME_OVER) {
+    if (
+      this.state == GameState.GAME_OVER &&
+      Date.now() - this.startTime > Constants.GAME_TIME + Constants.GAME_OVER_DISABLE_CLICK_TIME
+    ) {
       this.state = GameState.PLAYING;
       this.initCourse();
       return;
