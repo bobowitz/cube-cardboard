@@ -9,6 +9,8 @@ export class Constants {
   static readonly HIT_INVULN_TIME = 1000;
   static readonly SCORE_SEND_INTERVAL = 10000;
 
+  static readonly GAME_TIME = 30000;
+
   static readonly EYE_DIST = 0.22;
   static readonly LEFT_CENTER = 0.5 - Constants.EYE_DIST;
   static readonly RIGHT_CENTER = 0.5 + Constants.EYE_DIST;

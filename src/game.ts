@@ -29,6 +29,7 @@ export class Game {
   leaderboard: string;
   lastScoreSentTime = 0;
   income = 15;
+  startTime = 0;
 
   // [min, max] inclusive
   static rand = (min: number, max: number): number => {
@@ -59,6 +60,7 @@ export class Game {
 
     if (this.state == GameState.GAME_OVER) {
       this.state = GameState.PLAYING;
+      this.initCourse();
       return;
     }
 
@@ -78,6 +80,42 @@ export class Game {
     return vars;
   };
 
+  initCourse = () => {
+    this.boxes = new Array<Box>();
+    for (let z = 0; z < 20000; z += 2500) {
+      for (let x = -500; x <= 500; x += 100) {
+        for (let y = Game.rand(-750, -500); y <= -100; y += 100) {
+          this.boxes.push(new Box(x, y, z + Game.rand(0, 100), 50, 50));
+        }
+      }
+    }
+
+    this.obstacles = new Array<Obstacle>();
+    this.bonuses = new Array<Bonus>();
+    for (let i = 0; i < 100; i++) {
+      this.obstacles.push(
+        new Obstacle(
+          Game.rand(-1, 1) * Constants.LANE_WIDTH,
+          0,
+          i * 250 + 1000,
+          Constants.OBSTACLE_SIZE,
+          Constants.OBSTACLE_SIZE
+        )
+      );
+      this.bonuses.push(
+        new Bonus(
+          Game.rand(-1, 1) * Constants.LANE_WIDTH,
+          0,
+          i * 4000 + 125,
+          Constants.OBSTACLE_SIZE,
+          Constants.OBSTACLE_SIZE
+        )
+      );
+    }
+
+    this.startTime = Date.now();
+  };
+
   constructor() {
     window.addEventListener("load", () => {
       Game.canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
@@ -90,37 +128,7 @@ export class Game {
 
       Game.canvas.addEventListener("click", this.handleTouchStart, false);
 
-      this.boxes = new Array<Box>();
-      for (let z = 0; z < 20000; z += 2500) {
-        for (let x = -500; x <= 500; x += 100) {
-          for (let y = Game.rand(-750, -500); y <= -100; y += 100) {
-            this.boxes.push(new Box(x, y, z + Game.rand(0, 100), 50, 50));
-          }
-        }
-      }
-
-      this.obstacles = new Array<Obstacle>();
-      this.bonuses = new Array<Bonus>();
-      for (let i = 0; i < 100; i++) {
-        this.obstacles.push(
-          new Obstacle(
-            Game.rand(-1, 1) * Constants.LANE_WIDTH,
-            0,
-            i * 250 + 1000,
-            Constants.OBSTACLE_SIZE,
-            Constants.OBSTACLE_SIZE
-          )
-        );
-        this.bonuses.push(
-          new Bonus(
-            Game.rand(-1, 1) * Constants.LANE_WIDTH,
-            0,
-            i * 4000 + 125,
-            Constants.OBSTACLE_SIZE,
-            Constants.OBSTACLE_SIZE
-          )
-        );
-      }
+      this.initCourse();
 
       let app = firebase.initializeApp({
         apiKey: "AIzaSyBcclGQRK6f9WulXAK24tTftGo0pl_GJhQ",
@@ -155,6 +163,17 @@ export class Game {
   oldTime = Date.now();
 
   update = () => {
+    if (this.state == GameState.PLAYING && Date.now() - this.startTime > Constants.GAME_TIME) {
+      this.state = GameState.GAME_OVER;
+      let userRef = this.db.collection("users").doc(this.username);
+
+      userRef.set({
+        score: this.score,
+      });
+    }
+
+    if (this.state == GameState.GAME_OVER) return;
+
     if (Date.now() - this.lastScoreSentTime > Constants.SCORE_SEND_INTERVAL) {
       this.lastScoreSentTime = Date.now();
 
@@ -296,6 +315,22 @@ export class Game {
       Game.ctx.globalAlpha = 0.5;
       Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
       Game.ctx.globalAlpha = 1;
+
+      Game.ctx.fillStyle = "white";
+      let gameover = ("GAME OVER\nYou retired with $" + Math.round(this.score)).split("\n");
+      for (let i = 0; i < gameover.length; i++) {
+        let w = Game.ctx.measureText(gameover[i]).width;
+        Game.ctx.fillText(
+          gameover[i],
+          Game.canvas.width * 0.27 - w * 0.5,
+          Game.canvas.height * 0.5 + 10 + i * 25
+        );
+        Game.ctx.fillText(
+          gameover[i],
+          Game.canvas.width * 0.73 - w * 0.5,
+          Game.canvas.height * 0.5 + 10 + i * 25
+        );
+      }
     }
   };
 }

@@ -71,8 +71,8 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var box_1 = __webpack_require__(1);
-var obstacle_1 = __webpack_require__(2);
-var constants_1 = __webpack_require__(3);
+var obstacle_1 = __webpack_require__(3);
+var constants_1 = __webpack_require__(2);
 var bonus_1 = __webpack_require__(4);
 var GameState;
 (function (GameState) {
@@ -91,6 +91,7 @@ var Game = /** @class */ (function () {
         this.bonusHitTime = 0;
         this.lastScoreSentTime = 0;
         this.income = 15;
+        this.startTime = 0;
         this.handleTouchStart = function (evt) {
             var x = evt.clientX;
             var y = evt.clientY;
@@ -108,6 +109,7 @@ var Game = /** @class */ (function () {
                 _this.toggleFullscreen();
             if (_this.state == GameState.GAME_OVER) {
                 _this.state = GameState.PLAYING;
+                _this.initCourse();
                 return;
             }
             _this.targetX++;
@@ -124,6 +126,23 @@ var Game = /** @class */ (function () {
             });
             return vars;
         };
+        this.initCourse = function () {
+            _this.boxes = new Array();
+            for (var z = 0; z < 20000; z += 2500) {
+                for (var x = -500; x <= 500; x += 100) {
+                    for (var y = Game.rand(-750, -500); y <= -100; y += 100) {
+                        _this.boxes.push(new box_1.Box(x, y, z + Game.rand(0, 100), 50, 50));
+                    }
+                }
+            }
+            _this.obstacles = new Array();
+            _this.bonuses = new Array();
+            for (var i = 0; i < 100; i++) {
+                _this.obstacles.push(new obstacle_1.Obstacle(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 250 + 1000, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
+                _this.bonuses.push(new bonus_1.Bonus(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 4000 + 125, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
+            }
+            _this.startTime = Date.now();
+        };
         this.toggleFullscreen = function () {
             if (!_this.fullscreen)
                 document.documentElement.requestFullscreen();
@@ -137,6 +156,15 @@ var Game = /** @class */ (function () {
         };
         this.oldTime = Date.now();
         this.update = function () {
+            if (_this.state == GameState.PLAYING && Date.now() - _this.startTime > constants_1.Constants.GAME_TIME) {
+                _this.state = GameState.GAME_OVER;
+                var userRef = _this.db.collection("users").doc(_this.username);
+                userRef.set({
+                    score: _this.score,
+                });
+            }
+            if (_this.state == GameState.GAME_OVER)
+                return;
             if (Date.now() - _this.lastScoreSentTime > constants_1.Constants.SCORE_SEND_INTERVAL) {
                 _this.lastScoreSentTime = Date.now();
                 var userRef = _this.db.collection("users").doc(_this.username);
@@ -251,6 +279,13 @@ var Game = /** @class */ (function () {
                 Game.ctx.globalAlpha = 0.5;
                 Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
                 Game.ctx.globalAlpha = 1;
+                Game.ctx.fillStyle = "white";
+                var gameover = ("GAME OVER\nYou retired with $" + Math.round(_this.score)).split("\n");
+                for (var i = 0; i < gameover.length; i++) {
+                    var w_2 = Game.ctx.measureText(gameover[i]).width;
+                    Game.ctx.fillText(gameover[i], Game.canvas.width * 0.27 - w_2 * 0.5, Game.canvas.height * 0.5 + 10 + i * 25);
+                    Game.ctx.fillText(gameover[i], Game.canvas.width * 0.73 - w_2 * 0.5, Game.canvas.height * 0.5 + 10 + i * 25);
+                }
             }
         };
         window.addEventListener("load", function () {
@@ -261,20 +296,7 @@ var Game = /** @class */ (function () {
             Game.ctx.textBaseline = "top";
             _this.backgroundColor = "white";
             Game.canvas.addEventListener("click", _this.handleTouchStart, false);
-            _this.boxes = new Array();
-            for (var z = 0; z < 20000; z += 2500) {
-                for (var x = -500; x <= 500; x += 100) {
-                    for (var y = Game.rand(-750, -500); y <= -100; y += 100) {
-                        _this.boxes.push(new box_1.Box(x, y, z + Game.rand(0, 100), 50, 50));
-                    }
-                }
-            }
-            _this.obstacles = new Array();
-            _this.bonuses = new Array();
-            for (var i = 0; i < 100; i++) {
-                _this.obstacles.push(new obstacle_1.Obstacle(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 250 + 1000, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
-                _this.bonuses.push(new bonus_1.Bonus(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 4000 + 125, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
-            }
+            _this.initCourse();
             var app = firebase.initializeApp({
                 apiKey: "AIzaSyBcclGQRK6f9WulXAK24tTftGo0pl_GJhQ",
                 authDomain: "c1liferun.firebaseapp.com",
@@ -317,7 +339,7 @@ var game = new Game();
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var game_1 = __webpack_require__(0);
-var constants_1 = __webpack_require__(3);
+var constants_1 = __webpack_require__(2);
 var Box = /** @class */ (function () {
     function Box(x, y, z, w, h) {
         var _this = this;
@@ -382,6 +404,31 @@ exports.Box = Box;
 
 "use strict";
 
+Object.defineProperty(exports, "__esModule", { value: true });
+var Constants = /** @class */ (function () {
+    function Constants() {
+    }
+    Constants.FPS = 60;
+    Constants.LANE_WIDTH = 500;
+    Constants.OBSTACLE_SIZE = 100;
+    Constants.EPSILON = 100;
+    Constants.HIT_INVULN_TIME = 1000;
+    Constants.SCORE_SEND_INTERVAL = 10000;
+    Constants.GAME_TIME = 30000;
+    Constants.EYE_DIST = 0.22;
+    Constants.LEFT_CENTER = 0.5 - Constants.EYE_DIST;
+    Constants.RIGHT_CENTER = 0.5 + Constants.EYE_DIST;
+    return Constants;
+}());
+exports.Constants = Constants;
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -420,30 +467,6 @@ var Obstacle = /** @class */ (function (_super) {
     return Obstacle;
 }(box_1.Box));
 exports.Obstacle = Obstacle;
-
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-var Constants = /** @class */ (function () {
-    function Constants() {
-    }
-    Constants.FPS = 60;
-    Constants.LANE_WIDTH = 500;
-    Constants.OBSTACLE_SIZE = 100;
-    Constants.EPSILON = 100;
-    Constants.HIT_INVULN_TIME = 1000;
-    Constants.SCORE_SEND_INTERVAL = 10000;
-    Constants.EYE_DIST = 0.22;
-    Constants.LEFT_CENTER = 0.5 - Constants.EYE_DIST;
-    Constants.RIGHT_CENTER = 0.5 + Constants.EYE_DIST;
-    return Constants;
-}());
-exports.Constants = Constants;
 
 
 /***/ }),
