@@ -1,4 +1,6 @@
 export class Constants {
+  static readonly FPS = 60;
+
   static readonly LANE_WIDTH = 500;
   static readonly OBSTACLE_SIZE = 100;
 

@@ -1,6 +1,7 @@
 import { Box } from "./box";
 import { Obstacle } from "./obstacle";
 import { Constants } from "./constants";
+import { Bonus } from "./bonus";
 
 enum GameState {
   PLAYING,
@@ -12,20 +13,22 @@ declare var firebase: any;
 export class Game {
   static canvas: HTMLCanvasElement;
   static ctx: CanvasRenderingContext2D;
-  readonly FPS = 60;
   fullscreen = false;
   boxes: Array<Box>;
   obstacles: Array<Obstacle>;
+  bonuses: Array<Bonus>;
   backgroundColor: string;
   x = 0;
   targetX = 0;
   state = GameState.PLAYING;
   score = 0;
   hitTime = 0;
+  bonusHitTime = 0;
   db: any;
   username: string;
   leaderboard: string;
   lastScoreSentTime = 0;
+  income = 15;
 
   // [min, max] inclusive
   static rand = (min: number, max: number): number => {
@@ -97,12 +100,22 @@ export class Game {
       }
 
       this.obstacles = new Array<Obstacle>();
+      this.bonuses = new Array<Bonus>();
       for (let i = 0; i < 100; i++) {
         this.obstacles.push(
           new Obstacle(
             Game.rand(-1, 1) * Constants.LANE_WIDTH,
             0,
             i * 250 + 1000,
+            Constants.OBSTACLE_SIZE,
+            Constants.OBSTACLE_SIZE
+          )
+        );
+        this.bonuses.push(
+          new Bonus(
+            Game.rand(-1, 1) * Constants.LANE_WIDTH,
+            0,
+            i * 4000 + 125,
             Constants.OBSTACLE_SIZE,
             Constants.OBSTACLE_SIZE
           )
@@ -121,7 +134,7 @@ export class Game {
 
       this.db = firebase.firestore(app);
 
-      setInterval(this.run, 1000.0 / this.FPS);
+      setInterval(this.run, 1000.0 / Constants.FPS);
 
       this.username = this.getUrlVars()["user"];
       if (this.username === undefined) this.username = "user" + Game.rand(1, 1000000);
@@ -183,13 +196,25 @@ export class Game {
           o.z < 120 &&
           o.z > 100
         ) {
-          this.score -= 1000;
+          this.score -= 100;
           this.hitTime = Date.now();
+        }
+      }
+      for (const b of this.bonuses) {
+        b.update(delta);
+        if (
+          Date.now() - this.bonusHitTime > Constants.HIT_INVULN_TIME &&
+          Math.abs(b.x - this.x * Constants.LANE_WIDTH) < Constants.EPSILON * 4 &&
+          b.z < 120 &&
+          b.z > 100
+        ) {
+          this.score += 1000;
+          this.bonusHitTime = Date.now();
         }
       }
     }
 
-    this.score += 10;
+    this.score += this.income / Constants.FPS;
 
     this.x += 0.1 * (this.targetX - this.x);
   };
@@ -213,11 +238,12 @@ export class Game {
     Game.ctx.fillRect(0, Game.canvas.height / 2, Game.canvas.width, Game.canvas.height / 2);
 
     let scoreText = "";
-    if (this.score < 1000) scoreText = "$" + this.score;
-    else if (this.score < 1000000) scoreText = "$" + Math.round(this.score * 0.01) / 10 + "K";
-    else if (this.score < 1000000000) scoreText = "$" + Math.round(this.score * 0.00001) / 10 + "M";
+    let scoreI = Math.round(this.score);
+    if (this.score < 1000) scoreText = "$" + scoreI;
+    else if (this.score < 1000000) scoreText = "$" + Math.round(scoreI * 0.01) / 10 + "K";
+    else if (this.score < 1000000000) scoreText = "$" + Math.round(scoreI * 0.00001) / 10 + "M";
     else if (this.score < 1000000000000)
-      scoreText = "$" + Math.round(this.score * 0.00000001) / 10 + "B";
+      scoreText = "$" + Math.round(scoreI * 0.00000001) / 10 + "B";
 
     Game.ctx.font = "25px sans-serif";
     let w = Game.ctx.measureText(scoreText).width;
@@ -240,18 +266,26 @@ export class Game {
       );
     }
 
-    this.boxes.sort((a, b) => b.z - a.z);
-    for (const b of this.boxes) {
+    let allBoxes = [];
+    allBoxes = allBoxes.concat(this.boxes);
+    allBoxes = allBoxes.concat(this.obstacles);
+    allBoxes = allBoxes.concat(this.bonuses);
+    allBoxes.sort((a, b) => b.z - a.z);
+    for (const b of allBoxes) {
       b.draw(this.x * Constants.LANE_WIDTH);
-    }
-    this.obstacles.sort((a, b) => b.z - a.z);
-    for (const o of this.obstacles) {
-      o.draw(this.x * Constants.LANE_WIDTH);
     }
 
     if (Date.now() - this.hitTime <= Constants.HIT_INVULN_TIME) {
       let t = (Date.now() - this.hitTime) / Constants.HIT_INVULN_TIME;
       Game.ctx.fillStyle = "red";
+      Game.ctx.globalAlpha = (1 - t) * (1 - t) * (1 - t);
+      Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
+      Game.ctx.globalAlpha = 1;
+    }
+
+    if (Date.now() - this.bonusHitTime <= Constants.HIT_INVULN_TIME) {
+      let t = (Date.now() - this.bonusHitTime) / Constants.HIT_INVULN_TIME;
+      Game.ctx.fillStyle = "green";
       Game.ctx.globalAlpha = (1 - t) * (1 - t) * (1 - t);
       Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
       Game.ctx.globalAlpha = 1;

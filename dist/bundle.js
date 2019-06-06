@@ -73,6 +73,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var box_1 = __webpack_require__(1);
 var obstacle_1 = __webpack_require__(2);
 var constants_1 = __webpack_require__(3);
+var bonus_1 = __webpack_require__(4);
 var GameState;
 (function (GameState) {
     GameState[GameState["PLAYING"] = 0] = "PLAYING";
@@ -81,14 +82,15 @@ var GameState;
 var Game = /** @class */ (function () {
     function Game() {
         var _this = this;
-        this.FPS = 60;
         this.fullscreen = false;
         this.x = 0;
         this.targetX = 0;
         this.state = GameState.PLAYING;
         this.score = 0;
         this.hitTime = 0;
+        this.bonusHitTime = 0;
         this.lastScoreSentTime = 0;
+        this.income = 15;
         this.handleTouchStart = function (evt) {
             var x = evt.clientX;
             var y = evt.clientY;
@@ -171,12 +173,23 @@ var Game = /** @class */ (function () {
                         Math.abs(o.x - _this.x * constants_1.Constants.LANE_WIDTH) < constants_1.Constants.EPSILON &&
                         o.z < 120 &&
                         o.z > 100) {
-                        _this.score -= 1000;
+                        _this.score -= 100;
                         _this.hitTime = Date.now();
                     }
                 }
+                for (var _d = 0, _e = _this.bonuses; _d < _e.length; _d++) {
+                    var b = _e[_d];
+                    b.update(delta);
+                    if (Date.now() - _this.bonusHitTime > constants_1.Constants.HIT_INVULN_TIME &&
+                        Math.abs(b.x - _this.x * constants_1.Constants.LANE_WIDTH) < constants_1.Constants.EPSILON * 4 &&
+                        b.z < 120 &&
+                        b.z > 100) {
+                        _this.score += 1000;
+                        _this.bonusHitTime = Date.now();
+                    }
+                }
             }
-            _this.score += 10;
+            _this.score += _this.income / constants_1.Constants.FPS;
             _this.x += 0.1 * (_this.targetX - _this.x);
         };
         this.lerp = function (a, b, t) {
@@ -190,14 +203,15 @@ var Game = /** @class */ (function () {
             Game.ctx.fillStyle = "#304020";
             Game.ctx.fillRect(0, Game.canvas.height / 2, Game.canvas.width, Game.canvas.height / 2);
             var scoreText = "";
+            var scoreI = Math.round(_this.score);
             if (_this.score < 1000)
-                scoreText = "$" + _this.score;
+                scoreText = "$" + scoreI;
             else if (_this.score < 1000000)
-                scoreText = "$" + Math.round(_this.score * 0.01) / 10 + "K";
+                scoreText = "$" + Math.round(scoreI * 0.01) / 10 + "K";
             else if (_this.score < 1000000000)
-                scoreText = "$" + Math.round(_this.score * 0.00001) / 10 + "M";
+                scoreText = "$" + Math.round(scoreI * 0.00001) / 10 + "M";
             else if (_this.score < 1000000000000)
-                scoreText = "$" + Math.round(_this.score * 0.00000001) / 10 + "B";
+                scoreText = "$" + Math.round(scoreI * 0.00000001) / 10 + "B";
             Game.ctx.font = "25px sans-serif";
             var w = Game.ctx.measureText(scoreText).width;
             Game.ctx.fillStyle = "black";
@@ -209,19 +223,25 @@ var Game = /** @class */ (function () {
                 Game.ctx.fillText(top3[i], Game.canvas.width * 0.27 - w_1 * 0.5, Game.canvas.height * 0.5 - 100 + i * 25);
                 Game.ctx.fillText(top3[i], Game.canvas.width * 0.73 - w_1 * 0.5, Game.canvas.height * 0.5 - 100 + i * 25);
             }
-            _this.boxes.sort(function (a, b) { return b.z - a.z; });
-            for (var _i = 0, _a = _this.boxes; _i < _a.length; _i++) {
-                var b = _a[_i];
+            var allBoxes = [];
+            allBoxes = allBoxes.concat(_this.boxes);
+            allBoxes = allBoxes.concat(_this.obstacles);
+            allBoxes = allBoxes.concat(_this.bonuses);
+            allBoxes.sort(function (a, b) { return b.z - a.z; });
+            for (var _i = 0, allBoxes_1 = allBoxes; _i < allBoxes_1.length; _i++) {
+                var b = allBoxes_1[_i];
                 b.draw(_this.x * constants_1.Constants.LANE_WIDTH);
-            }
-            _this.obstacles.sort(function (a, b) { return b.z - a.z; });
-            for (var _b = 0, _c = _this.obstacles; _b < _c.length; _b++) {
-                var o = _c[_b];
-                o.draw(_this.x * constants_1.Constants.LANE_WIDTH);
             }
             if (Date.now() - _this.hitTime <= constants_1.Constants.HIT_INVULN_TIME) {
                 var t = (Date.now() - _this.hitTime) / constants_1.Constants.HIT_INVULN_TIME;
                 Game.ctx.fillStyle = "red";
+                Game.ctx.globalAlpha = (1 - t) * (1 - t) * (1 - t);
+                Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
+                Game.ctx.globalAlpha = 1;
+            }
+            if (Date.now() - _this.bonusHitTime <= constants_1.Constants.HIT_INVULN_TIME) {
+                var t = (Date.now() - _this.bonusHitTime) / constants_1.Constants.HIT_INVULN_TIME;
+                Game.ctx.fillStyle = "green";
                 Game.ctx.globalAlpha = (1 - t) * (1 - t) * (1 - t);
                 Game.ctx.fillRect(0, 0, Game.canvas.width, Game.canvas.height);
                 Game.ctx.globalAlpha = 1;
@@ -250,8 +270,10 @@ var Game = /** @class */ (function () {
                 }
             }
             _this.obstacles = new Array();
+            _this.bonuses = new Array();
             for (var i = 0; i < 100; i++) {
                 _this.obstacles.push(new obstacle_1.Obstacle(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 250 + 1000, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
+                _this.bonuses.push(new bonus_1.Bonus(Game.rand(-1, 1) * constants_1.Constants.LANE_WIDTH, 0, i * 4000 + 125, constants_1.Constants.OBSTACLE_SIZE, constants_1.Constants.OBSTACLE_SIZE));
             }
             var app = firebase.initializeApp({
                 apiKey: "AIzaSyBcclGQRK6f9WulXAK24tTftGo0pl_GJhQ",
@@ -263,7 +285,7 @@ var Game = /** @class */ (function () {
                 appId: "1:684158690510:web:7270ae86dcc3f056",
             });
             _this.db = firebase.firestore(app);
-            setInterval(_this.run, 1000.0 / _this.FPS);
+            setInterval(_this.run, 1000.0 / constants_1.Constants.FPS);
             _this.username = _this.getUrlVars()["user"];
             if (_this.username === undefined)
                 _this.username = "user" + Game.rand(1, 1000000);
@@ -410,6 +432,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var Constants = /** @class */ (function () {
     function Constants() {
     }
+    Constants.FPS = 60;
     Constants.LANE_WIDTH = 500;
     Constants.OBSTACLE_SIZE = 100;
     Constants.EPSILON = 100;
@@ -421,6 +444,52 @@ var Constants = /** @class */ (function () {
     return Constants;
 }());
 exports.Constants = Constants;
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var game_1 = __webpack_require__(0);
+var box_1 = __webpack_require__(1);
+var Bonus = /** @class */ (function (_super) {
+    __extends(Bonus, _super);
+    function Bonus(x, y, z, w, h) {
+        var _this = _super.call(this, x, y, z, w, h) || this;
+        _this.update = function (delta) {
+            _this.z -= 0.5 * delta;
+            if (_this.z <= 0)
+                _this.z += 800000;
+        };
+        _this.draw = function (camX) {
+            for (var i = 4; i >= 0; i--) {
+                game_1.Game.ctx.fillStyle = "rgb(0, " + (40 - i * 10) * 10 + ", 0)";
+                _this.drawRect(_this.x - camX, _this.y, _this.z + i * 10, _this.w, _this.h);
+            }
+            game_1.Game.ctx.fillStyle = "green";
+            _this.drawRect(_this.x - camX, _this.y, _this.z, _this.w, _this.h);
+        };
+        return _this;
+    }
+    return Bonus;
+}(box_1.Box));
+exports.Bonus = Bonus;
 
 
 /***/ })
