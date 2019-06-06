@@ -17,8 +17,11 @@
   </head>
 
   <body>
-    Enter a name: 
-    <input id="username"></input>
-    <button type="button" onclick='window.location.href = "game.html?user=" + document.getElementById("username").value'>Start</button>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <canvas id="gameCanvas" width="10000" height="1"></canvas>
+
+    <script src="https://www.gstatic.com/firebasejs/6.1.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.1.0/firebase-firestore.js"></script>
+    <script src="dist/bundle.js"></script>
   </body>
 </html>
