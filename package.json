@@ -7,17 +7,9 @@
     "prepublish": "typings install",
     "watch": "webpack --watch"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/bobowitz/tree-generator.git"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/bobowitz/tree-generator/issues"
-  },
-  "homepage": "https://github.com/bobowitz/tree-generator#readme",
   "devDependencies": {
     "ts-loader": "^2.3.2",
     "typings": "^2.1.1",

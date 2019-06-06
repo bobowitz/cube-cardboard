@@ -7,6 +7,8 @@ enum GameState {
   GAME_OVER,
 }
 
+declare var firebase: any;
+
 export class Game {
   static canvas: HTMLCanvasElement;
   static ctx: CanvasRenderingContext2D;
@@ -20,6 +22,10 @@ export class Game {
   state = GameState.PLAYING;
   score = 0;
   hitTime = 0;
+  db: any;
+  username: string;
+  leaderboard: string;
+  lastScoreSentTime = 0;
 
   // [min, max] inclusive
   static rand = (min: number, max: number): number => {
@@ -46,26 +52,27 @@ export class Game {
       this.backgroundColor = "#ffffff";
     }*/
 
+    if (!this.fullscreen) this.toggleFullscreen();
+
     if (this.state == GameState.GAME_OVER) {
       this.state = GameState.PLAYING;
       return;
     }
 
-    if (x >= Game.canvas.width - 100 && y >= Game.canvas.height - 100) {
-      this.toggleFullscreen();
-    } else {
-      this.targetX++;
-      if (this.targetX > 1) this.targetX = -1;
+    this.targetX++;
+    if (this.targetX > 1) this.targetX = -1;
 
-      this.backgroundColor =
-        "rgb(" +
-        Game.rand(200, 255) +
-        ", " +
-        Game.rand(200, 255) +
-        ", " +
-        Game.rand(200, 255) +
-        ")";
-    }
+    this.backgroundColor =
+      "rgb(" + Game.rand(200, 255) + ", " + Game.rand(200, 255) + ", " + Game.rand(200, 255) + ")";
+  };
+
+  getUrlVars = function() {
+    var vars = {};
+    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, (m, key, value) => {
+      vars[key] = value;
+      return "";
+    });
+    return vars;
   };
 
   constructor() {
@@ -102,7 +109,22 @@ export class Game {
         );
       }
 
+      let app = firebase.initializeApp({
+        apiKey: "AIzaSyBcclGQRK6f9WulXAK24tTftGo0pl_GJhQ",
+        authDomain: "c1liferun.firebaseapp.com",
+        databaseURL: "https://c1liferun.firebaseio.com",
+        projectId: "c1liferun",
+        storageBucket: "c1liferun.appspot.com",
+        messagingSenderId: "684158690510",
+        appId: "1:684158690510:web:7270ae86dcc3f056",
+      });
+
+      this.db = firebase.firestore(app);
+
       setInterval(this.run, 1000.0 / this.FPS);
+
+      this.username = this.getUrlVars()["user"];
+      if (this.username === undefined) this.username = "user" + Game.rand(1, 1000000);
     });
   }
 
@@ -120,6 +142,33 @@ export class Game {
   oldTime = Date.now();
 
   update = () => {
+    if (Date.now() - this.lastScoreSentTime > Constants.SCORE_SEND_INTERVAL) {
+      this.lastScoreSentTime = Date.now();
+
+      let userRef = this.db.collection("users").doc(this.username);
+
+      userRef.set({
+        score: this.score,
+      });
+
+      this.leaderboard = "";
+
+      var usersRef = this.db.collection("users");
+      usersRef
+        .orderBy("score", "desc")
+        .limit(3)
+        .get()
+        .then(querySnapshot => {
+          querySnapshot.forEach(doc => {
+            console.log(doc.data());
+            this.leaderboard += doc.id + ": " + doc.data().score + "\n";
+          });
+        })
+        .catch(function(error) {
+          console.log("Error getting documents: ", error);
+        });
+    }
+
     let delta = Date.now() - this.oldTime;
     this.oldTime = Date.now();
     if (this.state == GameState.PLAYING) {
@@ -170,14 +219,26 @@ export class Game {
     else if (this.score < 1000000000000)
       scoreText = "$" + Math.round(this.score * 0.00000001) / 10 + "B";
 
-    Game.ctx.fillStyle = "white";
-    Game.ctx.font = "55px sans-serif";
+    Game.ctx.font = "25px sans-serif";
     let w = Game.ctx.measureText(scoreText).width;
-    Game.ctx.fillText(scoreText, Game.canvas.width * 0.27 - w * 0.5, Game.canvas.height * 0.5 - 20);
-    Game.ctx.fillText(scoreText, Game.canvas.width * 0.73 - w * 0.5, Game.canvas.height * 0.5 - 20);
     Game.ctx.fillStyle = "black";
     Game.ctx.fillText(scoreText, Game.canvas.width * 0.27 - w * 0.5, Game.canvas.height * 0.5 - 20);
     Game.ctx.fillText(scoreText, Game.canvas.width * 0.73 - w * 0.5, Game.canvas.height * 0.5 - 20);
+
+    let top3 = this.leaderboard.split("\n");
+    for (let i = 0; i < top3.length; i++) {
+      let w = Game.ctx.measureText(top3[i]).width;
+      Game.ctx.fillText(
+        top3[i],
+        Game.canvas.width * 0.27 - w * 0.5,
+        Game.canvas.height * 0.5 - 100 + i * 25
+      );
+      Game.ctx.fillText(
+        top3[i],
+        Game.canvas.width * 0.73 - w * 0.5,
+        Game.canvas.height * 0.5 - 100 + i * 25
+      );
+    }
 
     this.boxes.sort((a, b) => b.z - a.z);
     for (const b of this.boxes) {
@@ -186,11 +247,6 @@ export class Game {
     this.obstacles.sort((a, b) => b.z - a.z);
     for (const o of this.obstacles) {
       o.draw(this.x * Constants.LANE_WIDTH);
-    }
-
-    if (!this.fullscreen) {
-      Game.ctx.fillStyle = "blue";
-      Game.ctx.fillRect(Game.canvas.width - 100, Game.canvas.height - 100, 100, 100);
     }
 
     if (Date.now() - this.hitTime <= Constants.HIT_INVULN_TIME) {
